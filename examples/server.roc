@@ -1,11 +1,12 @@
 app [event!] {
 	cfws: "../src/main.roc",
-	pf: platform "../../talon-ws/cloudflare-workers/platform/main.roc",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.1/4i6sgv5VVbr9xet5sWkRWMYa4H3dMUJSzWrMhRXsFTgn.tar.zst",
+	pf: platform "../../cloudflare-workers-ws/platform/main.roc",
+	ws: "../../roc-websocket/src/main.roc",
 }
 
 ## A Worker that accepts WebSockets itself (no Durable Object) and runs the
-## generic `Chat` handlers over each one with `Ws.drive!`.
+## generic `Chat` handlers over each one with `Ws.drive!`, through `Conn.accept`
+## (`Ws.Accept`) and `Conn.ops` (`Ws.Timed`).
 ##
 ## | Route | Does |
 ## | --- | --- |
@@ -17,31 +18,31 @@ import pf.Request
 import pf.Response
 import pf.Log
 import ws.Ws
-import cfws.WsWorker
+import cfws.Conn
 import Chat
 
 fetch! : Request => Try(Response, _)
 fetch! = |req| match req.segments() {
 	["chat"] =>
-		match WsWorker.accept!(req, { protocols: ["chat", "v2"] }) {
-			Ok({ conn, protocol, response }) => Ok(response.after(|| chat!(conn, protocol)))
+		match (Conn.accept.accept!)(req, { protocols: ["chat", "v2"] }) {
+			Ok({ response, opened }) => Ok(response.after(|| chat!(opened)))
 			Err(NotUpgrade(_)) => Ok(Response.from_status(426))
 			Err(e) => Err(e)
 		}
 	["timed"] =>
-		match WsWorker.accept!(req, {}) {
-			Ok({ conn, response, .. }) => Ok(response.after(|| ticks!(conn, 0)))
+		match (Conn.accept.accept!)(req, {}) {
+			Ok({ response, opened }) => Ok(response.after(|| ticks!(opened.conn, 0)))
 			Err(NotUpgrade(_)) => Ok(Response.from_status(426))
 			Err(e) => Err(e)
 		}
-	["plain"] => Ok(Response.from_text(200, Str.inspect(WsWorker.accept!(req, {}).map_ok(|_| {}))))
+	["plain"] => Ok(Response.from_text(200, Str.inspect((Conn.accept.accept!)(req, {}).map_ok(|_| {}))))
 	_ => Ok(Response.from_text(404, "no route"))
 }
 
-chat! : WsWorker.Conn, Str => Try({}, WsWorker.Error)
-chat! = |conn, protocol| {
-	Log.info!("chat open", { protocol: protocol })
-	h = Chat.handlers(WsWorker.ops)
+chat! : Ws.Opened(Conn) => Try({}, Conn.Error)
+chat! = |opened| {
+	Log.info!("chat open", { protocol: opened.protocol, extensions: Str.inspect(opened.extensions) })
+	h = Chat.handlers(Conn.ops)
 	handlers = {
 		on_open!: h.on_open!,
 		on_message!: h.on_message!,
@@ -50,7 +51,7 @@ chat! = |conn, protocol| {
 			(h.on_close!)(n, closure)
 		},
 	}
-	match Ws.drive!(WsWorker.ops, conn, 0, handlers) {
+	match Ws.drive!(Conn.ops, opened.conn, 0, handlers) {
 		Ok(count) => Log.info!("chat closed", { count: count })
 		Err(e) => Log.info!("chat failed", { error: Str.inspect(e) })
 	}
@@ -58,7 +59,7 @@ chat! = |conn, protocol| {
 }
 
 ## "tick" for each 200 ms with no message, the message back otherwise.
-ticks! : WsWorker.Conn, U64 => Try({}, WsWorker.Error)
+ticks! : Conn, U64 => Try({}, Conn.Error)
 ticks! = |conn, n| match conn.receive_within!(200) {
 	Ok((c, TimedOut)) =>
 		match c.send!(Text("tick ${n.to_str()}")) {

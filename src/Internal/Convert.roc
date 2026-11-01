@@ -1,7 +1,7 @@
 import pf.WebSocket
 import ws.Ws
 
-# The mappings that WsWorker and WsObject share. Hidden: main.roc does not list it.
+# The mappings that Conn and Push share. Hidden: main.roc does not list it.
 Convert :: [].{
 
 	to_platform : Ws.Message -> WebSocket.Message
@@ -15,12 +15,6 @@ Convert :: [].{
 		Text(s) => Text(s)
 		Bytes(b) => Binary(b)
 	}
-
-	## The closure of `send!` and `close!` after this endpoint's `close!`,
-	## before the peer answers: the code and reason sent (roc-websocket's
-	## `Client` gives the same).
-	provisional : U16, Str -> Ws.Closure
-	provisional = |code, reason| { code, reason, clean: Bool.False, by: Us }
 
 	## The platform's `close!` errors as roc-websocket's `InvalidClose`.
 	invalid_close : [BadCode, TooLarge], U16, Str -> [InvalidClose(Str), ..others]
@@ -41,7 +35,6 @@ Convert :: [].{
 expect Convert.from_platform(Convert.to_platform(Text("hi"))) == Text("hi")
 expect Convert.from_platform(Convert.to_platform(Binary([0, 1, 255]))) == Binary([0, 1, 255])
 expect Convert.to_platform(Binary([7])) == Bytes([7])
-expect Convert.provisional(4000, "bye") == { code: 4000, reason: "bye", clean: Bool.False, by: Us }
 expect Convert.invalid_close(BadCode, 1005, "") == InvalidClose("the close code 1005 may not be sent")
 expect Convert.invalid_close(TooLarge, 1000, Str.repeat("r", 124)) == InvalidClose("a close reason of 124 bytes; at most 123")
 expect Convert.no_max_message(Err(MissingField)) == Ok({})

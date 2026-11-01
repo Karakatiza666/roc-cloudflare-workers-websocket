@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const name = process.argv[2];
 const wasm = process.argv[3];
-const platform = process.env.PLATFORM ?? join(here, '../../talon-ws/cloudflare-workers');
+const platform = process.env.PLATFORM ?? join(here, '../../cloudflare-workers-ws');
 const mfDir = process.env.MINIFLARE ?? join(dirname(dirname(process.execPath)), 'lib/node_modules/wrangler/node_modules/miniflare');
 const runDir = join(here, '../.cache/tmp', `run-${process.pid}`);
 mkdirSync(runDir, { recursive: true });

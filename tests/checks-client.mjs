@@ -23,23 +23,33 @@ export async function setup(t) {
 export async function teardown() {
   wss?.close();
 }
-const get = async (t, path) => (await fetch(`${t.url}${path}?url=${encodeURIComponent(server)}`)).text();
+const get = async (t, path, extra = '') => (await fetch(`${t.url}${path}?url=${encodeURIComponent(server)}${extra}`)).text();
+
+const closure = (code, reason, by = 'Us', clean = 'True') => `{ by: ${by}, clean: ${clean}, code: ${code}, reason: "${reason}" }`;
 
 export const checks = [
-  ['connect!, send!, receive!, receive_within!, close!, then send! and close! before the peer answers', async (t) => {
+  ['Dial: subprotocol, header, extensions; send!, receive!, receive_within!; Closing before the peer answers', async (t) => {
     eq(await get(t, 'talk'), [
-      'protocol=chat conn.protocol=chat',
+      'protocol=chat extensions=Reported([])',
       'info=Text("proto=chat x-test=yes")',
       'bytes=Binary([0, 1, 255])',
       'first=TimedOut',
       'second=Message(Text("late"))',
-      'sent=Err(Closed({ by: Us, clean: False, code: 1000, reason: "done" }))',
-      'again=Err(Closed({ by: Us, clean: False, code: 1000, reason: "done" }))',
-      'final=Err(Closed({ by: Us, clean: True, code: 1000, reason: "done" }))',
+      'sent=Err(Closing)',
+      'again=Err(Closing)',
+      `final=Err(Closed(${closure(1000, 'done')}))`,
     ].join(' '), 'the answer');
   }],
-  ['the peer closes: Closed by Peer from receive!, then NotOpen from send!', async (t) => {
-    eq(await get(t, 'peer_close'), 'got=Err(Closed({ by: Peer, clean: True, code: 4005, reason: "peer bye" })) sent=Err(NotOpen)', 'the answer');
+  ['a message each way, then close_and_wait! at once, 30 times: every close is clean', async (t) => {
+    eq(await get(t, 'exchange', '&n=30'), 'clean=30 other=[]', 'the closures');
+  }],
+  ['the peer closes: the same closure from receive!, send! and close!', async (t) => {
+    const c = `Err(Closed(${closure(4005, 'peer bye', 'Peer')}))`;
+    eq(await get(t, 'peer_close'), `got=${c} sent=${c} close=${c}`, 'the answer');
+  }],
+  ['a stale connection value: close! and send! give the closure the runtime has', async (t) => {
+    const c = closure(4001, 'generic');
+    eq(await get(t, 'stale'), `closure=${c} close=Err(Closed(${c})) send=Err(Closed(${c}))`, 'the answer');
   }],
   ['errors: max_message, a refused upgrade, close codes and reasons that may not be sent', async (t) => {
     eq(await get(t, 'errors'), [
@@ -49,8 +59,5 @@ export const checks = [
       'long=Err(InvalidClose("a close reason of 124 bytes; at most 123"))',
       'still=Ok(Text("echo still"))',
     ].join(' '), 'the answer');
-  }],
-  ['Ws.close_and_wait! over WsWorker.ops', async (t) => {
-    eq(await get(t, 'close_and_wait'), '{ by: Us, clean: True, code: 4001, reason: "generic" }', 'the closure');
   }],
 ];

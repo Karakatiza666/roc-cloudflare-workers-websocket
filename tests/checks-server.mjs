@@ -1,10 +1,10 @@
-// examples/server.roc: a Worker that accepts WebSockets and runs the generic Chat handlers with Ws.drive!.
+// examples/server.roc: a Worker that accepts WebSockets (Conn.accept) and runs the generic Chat handlers with Ws.drive!.
 import { client, eq, ok, sleep, waitLog, wsUrl } from './lib.mjs';
 
 export const checks = [
   ['a request with no Upgrade is NotUpgrade', async (t) => {
     const r = await fetch(t.url + 'plain');
-    eq(await r.text(), 'Err(NotUpgrade("the request has no Upgrade: websocket"))', 'accept!');
+    eq(await r.text(), 'Err(NotUpgrade("the request has no Upgrade: websocket"))', 'Conn.accept');
     eq((await fetch(t.url + 'chat')).status, 426, '/chat');
   }],
   ['the subprotocol is the first of the server that the client offers', async (t) => {
@@ -12,7 +12,8 @@ export const checks = [
     eq(a.protocol, 'chat', 'the client sees');
     eq(await a.next(), 'welcome', 'on_open!');
     await a.close(1000, 'x');
-    eq((await waitLog(t, 'chat open', (l) => l.protocol === 'chat')).protocol, 'chat', 'the Worker sees');
+    const open = await waitLog(t, 'chat open', (l) => l.protocol === 'chat');
+    eq([open.protocol, open.extensions], ['chat', 'NotReported'], 'the Worker sees; workerd does not report the extensions of a server socket');
     const b = await client(wsUrl(t.url, '/chat'));
     eq(b.protocol, '', 'no offer: no protocol');
     await b.close(1000, 'x');

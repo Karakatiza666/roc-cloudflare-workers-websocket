@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The local checks. Usage: scripts/all_tests.sh [--no-run]
-# Env: ROC (default: the nightly that talon's tooling pins, see scripts/roc.sh), PLATFORM (the cloudflare-workers
-# checkout whose platform/main.roc the headers name, default ../talon-ws/cloudflare-workers), MINIFLARE.
+# Env: ROC (default: the nightly that roc-websocket pins, see scripts/roc.sh), PLATFORM (the cloudflare-workers
+# checkout whose platform/main.roc the headers name, default ../cloudflare-workers-ws), MINIFLARE.
 # fmt, check and test the package; check and build each example to wasm32; then run each example in Miniflare with
 # real WebSocket clients and servers (tests/run.mjs, tests/checks-<example>.mjs).
 set -euo pipefail

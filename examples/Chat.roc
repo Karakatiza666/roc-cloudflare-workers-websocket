@@ -1,8 +1,8 @@
 import ws.Ws
 
 ## Handlers that work over the sending operations of any roc-websocket
-## adapter: the Worker server runs them with `Ws.drive!` over `WsWorker.ops`,
-## the Durable Object with `WsObject.class` over `WsObject.ops`. The state is
+## adapter: the Worker server runs them with `Ws.drive!` over `Conn.ops`,
+## the Durable Object through `Push.message!` over `Push.ops`. The state is
 ## the number of messages of the connection.
 Chat :: [].{
 
