@@ -184,7 +184,7 @@ URL.
   to wasm32 crashes the compiler with a segfault on macOS and Linux arm64 hosts (in the
   post-check `spec_constr` pass on arm64). It builds and runs on Linux x86_64. CI covers Linux
   x86_64 only.
-  Upstream: roc-lang/roc#TBD
+  Upstream: [roc-lang/roc#12771](https://github.com/roc-lang/roc/issues/12771)
 
 ## Changes
 
