@@ -90,33 +90,39 @@ Push :: [].{
 	## Call in the object's `fetch!` after `accept!`/`accept_with!` of the
 	## platform: runs `on_open!` with `state` and keeps the state it gives in
 	## `slot`.
-	opened! : Object.Socket, Object.Attachment(s), s, Ws.Handlers(s, Object.Socket, e) => Try({}, [Handler([Closed(Ws.Closure), Closing, ..e]), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])])
+	opened! : Object.Socket, Object.Attachment(s), s, Ws.Handlers(s, Object.Socket, e) => Try({}, [Handler(Ws.Error(e)), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])])
 	opened! = |socket, slot, state, handlers| {
-		(s1, _) = (handlers.on_open!)(state, socket).map_err(|e| Handler(e))?
-		keep!(slot, socket, s1)
+		match (handlers.on_open!)(state, socket) {
+			Ok((s1, _)) => keep!(slot, socket, s1)
+			Err(e) => Err(Handler(e))
+		}
 	}
 
 	## The `web_socket_message!` handler: `on_message!` with the state in
 	## `slot`, then the new state is kept.
-	message! : Object.Attachment(s), Ws.Handlers(s, Object.Socket, e) -> (Object.Self, Object.Socket, WebSocket.Message => Try({}, [Handler([Closed(Ws.Closure), Closing, ..e]), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])]))
+	message! : Object.Attachment(s), Ws.Handlers(s, Object.Socket, e) -> (Object.Self, Object.Socket, WebSocket.Message => Try({}, [Handler(Ws.Error(e)), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])]))
 	message! = |slot, handlers| |_self, socket, msg| {
 		s = load!(slot, socket)?
-		(s1, _) = (handlers.on_message!)(s, socket, Convert.from_platform(msg)).map_err(|e| Handler(e))?
-		keep!(slot, socket, s1)
+		match (handlers.on_message!)(s, socket, Convert.from_platform(msg)) {
+			Ok((s1, _)) => keep!(slot, socket, s1)
+			Err(e) => Err(Handler(e))
+		}
 	}
 
 	## The `web_socket_close!` handler: answers a close of the peer (with its
 	## code, or 1000 when it sent none), then `on_close!` with the state in
 	## `slot` and the closure.
-	closed! : Object.Attachment(s), Ws.Handlers(s, Object.Socket, e) -> (Object.Self, Object.Socket, WebSocket.Closed => Try({}, [Handler([Closed(Ws.Closure), Closing, ..e]), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])]))
+	closed! : Object.Attachment(s), Ws.Handlers(s, Object.Socket, e) -> (Object.Self, Object.Socket, WebSocket.Closed => Try({}, [Handler(Ws.Error(e)), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])]))
 	closed! = |slot, handlers| |_self, socket, closure| {
 		if closure.by == Peer {
 			_ = socket.close!(if (closure.code == 1005) 1000 else closure.code, closure.reason)
 			{}
 		}
 		s = load!(slot, socket)?
-		_ = (handlers.on_close!)(s, closure).map_err(|e| Handler(e))?
-		Ok({})
+		match (handlers.on_close!)(s, closure) {
+			Ok(_) => Ok({})
+			Err(e) => Err(Handler(e))
+		}
 	}
 }
 

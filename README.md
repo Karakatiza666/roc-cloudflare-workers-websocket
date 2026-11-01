@@ -13,22 +13,21 @@ both side by side.
 | Item | Value |
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
-| Depends on | roc-websocket 0.0.2; the cloudflare-workers platform, branch `websocket-gaps` (by path until released); roc-websocket by its 0.0.2 release URL |
-| Compiler | the platform's pin, nightly-2026-10-26-3c0fffe (`scripts/roc.sh`). With nightly-2026-10-31-f7bef6b `examples/room.roc` builds but traps at its first call |
+| Depends on | roc-websocket 0.0.3; the cloudflare-workers platform 0.0.2 (both by their release URLs) |
+| Compiler | Roc nightly-2026-10-31-f7bef6b, the nightly the platform 0.0.2 needs (`.roc-version`, which CI installs) |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
 
 ## Use
 
-The package names the platform, so the app names the same one. Until it is released, the
-header uses a path to the platform checkout at `../cloudflare-workers-ws`, next to this repository;
-roc-websocket is its 0.0.2 release URL.
+The package names the platform, so the app names the same one: the cloudflare-workers platform
+0.0.2 and roc-websocket 0.0.3. It needs Roc nightly-2026-10-31-f7bef6b.
 
 ```roc
 app [event!] {
-	pf: platform "../../cloudflare-workers-ws/platform/main.roc",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
-	cfws: "../src/main.roc",
+	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.2/f352LLRKJCZ4JJVEocp3H9e4e6Sxa6Ym5CxZ1GZCpfd.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
+	cfws: "https://github.com/Karakatiza666/roc-cloudflare-workers-websocket/releases/download/0.0.1/3663v9dUdg2mfv4XAdGHHq7k9McDJ29CNGMhfhKortVH.tar.zst",
 }
 
 import ws.Ws
@@ -36,7 +35,7 @@ import cfws.Conn
 
 ask! : Str => Try(Ws.Message, Conn.Error)
 ask! = |text| {
-	opened = (Conn.dial.connect!)({ url: "wss://example.com/echo", protocols: ["v1"] })?
+	opened = (Conn.connect.connect!)({ url: "wss://example.com/echo", protocols: ["v1"] })?
 	conn = opened.conn.send!(Text(text))?
 	(conn2, reply) = conn.receive!()?
 	_ = Ws.close_and_wait!(Conn.ops, conn2, 1000, "")?
@@ -54,11 +53,11 @@ Each call returns the updated connection: keep using the newest one.
 | --- | --- |
 | `Conn` | the connection; methods `send!`, `receive!`, `receive_within!`, `close!`, `socket` |
 | `Conn.ops` | `Ws.Timed(Conn, Conn.Errors)` (the core and `receive_within!`) |
-| `Conn.dial` | `Ws.Dial(Conn, Conn.Errors, {})` |
+| `Conn.connect` | `Ws.Connect(Conn, Conn.Errors, {})` |
 | `Conn.accept` | `Ws.Accept(Request, Response, Conn, Conn.Errors, {})` |
 | `Conn.of`, `conn.socket()` | `WebSocket -> Conn`, `Conn -> WebSocket`: to and from the platform's socket |
 | `Conn.Errors` | `[InvalidClose(Str), SocketErr(Io.Thrown), Refused(Str), NotUpgrade(Str), Unsupported(Str)]` |
-| `Conn.Error` | `[Closed(Ws.Closure), Closing, ..Conn.Errors]` (written out in the source) |
+| `Conn.Error` | `Ws.Error(Conn.Errors)`: `[Closed(Ws.Closure), Closing, ..Conn.Errors]` |
 
 A Worker server returns `response` from `fetch!` and runs the connection in its `after` work,
 which lives until the socket closes:
@@ -119,7 +118,7 @@ and `Push.persist` on one socket exclude each other.
 | `receive!` | `ws.receive!()` |
 | `close!` | `ws.close!(code, reason)`; `BadCode`, `TooLarge` → `InvalidClose(Str)`; on a closing or closed socket as `send!` |
 | `receive_within!(c, ms)` | `ws.receive().timeout(ms).run!()`; `Infra(TimedOut)` → `Ok(TimedOut)` (the message stays queued) |
-| `Dial.connect!` | `WebSocket.connect_with!(url, { protocols, headers })`; not 101 → `Refused(Str)`; `extensions: Reported(...)` from the 101 response |
+| `Connect.connect!` | `WebSocket.connect_with!(url, { protocols, headers })`; not 101 → `Refused(Str)`; `extensions: Reported(...)` from the 101 response |
 | `Accept.accept!` | `WebSocket.accept_with!(req, { protocols })`; `response` is the 101; `extensions: NotReported` |
 | `Push.send!` / `close!` | `Object.Socket.send!` / `close!`; a closed socket is `Closing` (Workers gives the closure to `web_socket_close!`) |
 | `Handlers.on_open!` | `Push.opened!` after `Object.Self.accept!`/`accept_with!` |
@@ -133,7 +132,7 @@ and `Push.persist` on one socket exclude each other.
 | --- | --- | --- | --- |
 | `Core` | yes | `Sender` only (push) | |
 | `ReceiveWithin` | yes | no | an object has no receive |
-| `Dial`, `Accept` | yes | accept is the platform's | |
+| `Connect`, `Accept` | yes | accept is the platform's | |
 | `Handlers` | with `Ws.drive!` | yes | |
 | `Persist` | no | yes | a Worker socket does not hibernate |
 | `AutoResponse` | no | yes, on `Object.Self` | |
@@ -155,15 +154,42 @@ and `Push.persist` on one socket exclude each other.
 ## Tests
 
 ```sh
-scripts/all_tests.sh          # fmt, check, roc test, build the examples to wasm32, run them in Miniflare
+ROC=/path/to/roc scripts/all_tests.sh   # fmt, check, roc test, build the examples to wasm32, run them in Miniflare
+ROC=/path/to/roc scripts/bundle.sh 0.0.1      # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/test_bundle.sh       # the examples against dist/*.tar.zst (or a release URL), in Miniflare
 ```
 
-`tests/run.mjs` loads an example's wasm with the platform's JS shim in Miniflare, as the
-platform's conformance runner does, and runs `tests/checks-<example>.mjs` with Node WebSocket
-clients and a Node `ws` server:
+The Miniflare runs need Node (26) and a global wrangler (`npm install -g wrangler`), whose
+Miniflare `tests/run.mjs` loads (`MINIFLARE` names another). `tests/run.mjs` loads an example's
+wasm with the platform's JS shim in Miniflare, as the platform's conformance runner does, and
+runs `tests/checks-<example>.mjs` with Node WebSocket clients and a Node `ws` server. The shim is
+the `js/` of the platform bundle that `roc check` downloaded to the roc package cache
+(`$XDG_CACHE_HOME/roc/packages/<hash>`, by default `~/.cache/roc/packages/<hash>`); `PLATFORM`
+names another directory with a `js/`, such as a cloudflare-workers checkout.
 
 | Example | Checks |
 | --- | --- |
-| `examples/client.roc` | `Conn.dial`: subprotocol, header, extensions, text, bytes, `receive_within!`, `Closing` before the peer answers, 30 clean closes right after a message exchange, the peer's closure from `receive!`, `send!` and `close!`, a stale value, `InvalidClose`, `Unsupported`, `Refused` |
+| `examples/client.roc` | `Conn.connect`: subprotocol, header, extensions, text, bytes, `receive_within!`, `Closing` before the peer answers, 30 clean closes right after a message exchange, the peer's closure from `receive!`, `send!` and `close!`, a stale value, `InvalidClose`, `Unsupported`, `Refused` |
 | `examples/server.roc` | `Conn.accept`: 426 / `NotUpgrade`, subprotocol, `NotReported` extensions, the generic `Chat` handlers over `Ws.drive!` (state, bytes, closes by `Peer` and `Us`), `receive_within!` ticks |
 | `examples/room.roc` | `Push` in the app's own classes: the same `Chat` handlers, state per connection across events, the platform's tags and subprotocol, `Closing` after `close!`, `AutoResponse`, `Persist` and its limit |
+
+CI (`.github/workflows/tests.yaml`) runs `scripts/all_tests.sh` and `scripts/test_bundle.sh` on
+Linux x86_64 and arm64 and macOS with the nightly of `.roc-version`, Node 26 and wrangler; a tag
+`X.Y.Z` runs `release.yml`, which publishes the bundle and the docs and then tests the published
+URL.
+
+## Changes
+
+### 0.0.1
+
+The first release, over roc-websocket 0.0.3 and the cloudflare-workers platform 0.0.2:
+
+- `Conn`: the platform's `WebSocket` as `Ws.Timed`, with `Conn.connect` (`Ws.Connect`) and
+  `Conn.accept` (`Ws.Accept`). `Ws.messages` over `Conn.ops` ends with `Err(Closed(closure))`.
+- `Push`: `Ws.Push`, `Ws.Persist` and `Ws.AutoResponse` over a Durable Object's sockets, and
+  `opened!`, `message!` and `closed!` to run a `Ws.Handlers` record from the app's own class.
+- `Conn.Error` is `Ws.Error(Conn.Errors)`; the handler errors of `Push` are
+  `Handler(Ws.Error(e))` and `Attachment(...)`.
+- Needs Roc nightly-2026-10-31-f7bef6b. `Push` matches the handlers' results in place of
+  `.map_err(...)?`, which compiled but trapped at the app's first call with this nightly
+  (roc-lang/roc#12762).

@@ -6,7 +6,7 @@ import ws.Ws
 import Internal/Convert as Convert
 
 ## A roc-websocket connection over the platform's `WebSocket`: a client of a
-## Worker (`dial`) or the server end of an upgrade that the Worker accepts
+## Worker (`connect`) or the server end of an upgrade that the Worker accepts
 ## itself (`accept`). Its methods are the fields of `ops` (`Ws.Timed`: the
 ## core and `receive_within!`).
 ##
@@ -29,7 +29,7 @@ Conn :: { socket : WebSocket, closing : Bool }.{
 	Errors : [InvalidClose(Str), SocketErr(Io.Thrown), Refused(Str), NotUpgrade(Str), Unsupported(Str)]
 
 	## Every error of a connection.
-	Error : [Closed(Ws.Closure), Closing, InvalidClose(Str), SocketErr(Io.Thrown), Refused(Str), NotUpgrade(Str), Unsupported(Str)]
+	Error : Ws.Error(Conn.Errors)
 
 	## The connection over a socket that the app got from the platform itself
 	## (for example from `WebSocket.accept_with!` with a `max_queued_bytes`).
@@ -93,13 +93,13 @@ Conn :: { socket : WebSocket, closing : Bool }.{
 		receive_within!: |c, ms| c.receive_within!(ms),
 	}
 
-	## `Ws.Dial`: `connect!` of `request.url` (`ws://`, `wss://`, or the
+	## `Ws.Connect`: `connect!` of `request.url` (`ws://`, `wss://`, or the
 	## `http(s)://` form) with its `protocols` and `headers`. The extensions
 	## are the server's `Sec-WebSocket-Extensions`. `max_message` is
 	## `Unsupported`: the platform has no limit on one message (it bounds the
 	## bytes queued for `receive!`, 4 MiB).
-	dial : Ws.Dial(Conn, Conn.Errors, {})
-	dial = { connect!: connect! }
+	connect : Ws.Connect(Conn, Conn.Errors, {})
+	connect = { connect!: connect! }
 
 	## `Ws.Accept` of a request of the Worker: the subprotocol is the first of
 	## `options.protocols` that the client offers. Return `response` from
@@ -110,7 +110,7 @@ Conn :: { socket : WebSocket, closing : Bool }.{
 	accept = { accept!: accept! }
 }
 
-connect! : Ws.Request => Try(Ws.Opened(Conn), Conn.Error)
+connect! : Ws.ConnectRequest => Try(Ws.Opened(Conn), Conn.Error)
 connect! = |request| {
 	Convert.no_max_message(request.?max_message)?
 	headers = (request.?headers ?? []).map(|(name, value)| { name, value })

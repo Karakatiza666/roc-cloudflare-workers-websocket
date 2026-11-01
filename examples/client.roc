@@ -1,11 +1,11 @@
 app [event!] {
 	cfws: "../src/main.roc",
-	pf: platform "../../cloudflare-workers-ws/platform/main.roc",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
+	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.2/f352LLRKJCZ4JJVEocp3H9e4e6Sxa6Ym5CxZ1GZCpfd.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
 }
 
 ## A Worker that connects out to a WebSocket server (`?url=ws://...`) through
-## `Conn.dial` (`Ws.Dial`) and answers with what it saw.
+## `Conn.connect` (`Ws.Connect`) and answers with what it saw.
 ##
 ## | Route | Does |
 ## | --- | --- |
@@ -40,8 +40,8 @@ show = |r| match r {
 	Err(e) => "Err ${Str.inspect(e)}"
 }
 
-connect! : Ws.Request => Try(Ws.Opened(Conn), Conn.Error)
-connect! = |request| (Conn.dial.connect!)(request)
+connect! : Ws.ConnectRequest => Try(Ws.Opened(Conn), Conn.Error)
+connect! = |request| (Conn.connect.connect!)(request)
 
 talk! : Str => Try(Str, Conn.Error)
 talk! = |url| {

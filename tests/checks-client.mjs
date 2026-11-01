@@ -28,7 +28,7 @@ const get = async (t, path, extra = '') => (await fetch(`${t.url}${path}?url=${e
 const closure = (code, reason, by = 'Us', clean = 'True') => `{ by: ${by}, clean: ${clean}, code: ${code}, reason: "${reason}" }`;
 
 export const checks = [
-  ['Dial: subprotocol, header, extensions; send!, receive!, receive_within!; Closing before the peer answers', async (t) => {
+  ['Connect: subprotocol, header, extensions; send!, receive!, receive_within!; Closing before the peer answers', async (t) => {
     eq(await get(t, 'talk'), [
       'protocol=chat extensions=Reported([])',
       'info=Text("proto=chat x-test=yes")',
