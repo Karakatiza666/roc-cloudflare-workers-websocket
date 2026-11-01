@@ -1,7 +1,7 @@
 app [event!] {
 	cfws: "../src/main.roc",
 	pf: platform "../../cloudflare-workers-ws/platform/main.roc",
-	ws: "../../roc-websocket/src/main.roc",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
 }
 
 ## Durable Objects that serve WebSockets with the platform's hibernation API,

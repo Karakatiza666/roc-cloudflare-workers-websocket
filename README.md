@@ -13,21 +13,21 @@ both side by side.
 | Item | Value |
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
-| Depends on | roc-websocket 0.0.2; the cloudflare-workers platform, branch `websocket-gaps` (both by path until released) |
+| Depends on | roc-websocket 0.0.2; the cloudflare-workers platform, branch `websocket-gaps` (by path until released); roc-websocket by its 0.0.2 release URL |
 | Compiler | the platform's pin, nightly-2026-10-26-3c0fffe (`scripts/roc.sh`). With nightly-2026-10-31-f7bef6b `examples/room.roc` builds but traps at its first call |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
 
 ## Use
 
-The package names the platform, so the app names the same one. Until both are released, the
-headers use paths: the platform checkout at `../cloudflare-workers-ws` and roc-websocket at
-`../roc-websocket`, next to this repository.
+The package names the platform, so the app names the same one. Until it is released, the
+header uses a path to the platform checkout at `../cloudflare-workers-ws`, next to this repository;
+roc-websocket is its 0.0.2 release URL.
 
 ```roc
 app [event!] {
 	pf: platform "../../cloudflare-workers-ws/platform/main.roc",
-	ws: "../../roc-websocket/src/main.roc",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
 	cfws: "../src/main.roc",
 }
 
