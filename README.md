@@ -174,9 +174,17 @@ names another directory with a `js/`, such as a cloudflare-workers checkout.
 | `examples/room.roc` | `Push` in the app's own classes: the same `Chat` handlers, state per connection across events, the platform's tags and subprotocol, `Closing` after `close!`, `AutoResponse`, `Persist` and its limit |
 
 CI (`.github/workflows/tests.yaml`) runs `scripts/all_tests.sh` and `scripts/test_bundle.sh` on
-Linux x86_64 and arm64 and macOS with the nightly of `.roc-version`, Node 26 and wrangler; a tag
+Linux x86_64 only, with the nightly of `.roc-version`, Node 26 and wrangler; a tag
 `X.Y.Z` runs `release.yml`, which publishes the bundle and the docs and then tests the published
 URL.
+
+## Known issues
+
+- With Roc nightly-2026-10-31-f7bef6b, building `examples/room.roc` (the Durable Object example)
+  to wasm32 crashes the compiler with a segfault on macOS and Linux arm64 hosts (in the
+  post-check `spec_constr` pass on arm64). It builds and runs on Linux x86_64. CI covers Linux
+  x86_64 only.
+  Upstream: roc-lang/roc#TBD
 
 ## Changes
 
