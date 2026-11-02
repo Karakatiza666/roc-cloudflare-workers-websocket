@@ -14,14 +14,14 @@ both side by side.
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
 | Depends on | roc-websocket 0.0.4; the cloudflare-workers platform 0.0.2 (both by their release URLs) |
-| Compiler | Roc nightly-2026-10-31-f7bef6b, the nightly the platform 0.0.2 needs (`.roc-version`, which CI installs) |
+| Compiler | Roc nightly-2026-11-01-48d3369 (`.roc-version`, which CI installs) |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
 
 ## Use
 
 The package names the platform, so the app names the same one: the cloudflare-workers platform
-0.0.2 and roc-websocket 0.0.4. It needs Roc nightly-2026-10-31-f7bef6b.
+0.0.2 and roc-websocket 0.0.4. It needs Roc nightly-2026-11-01-48d3369.
 
 ```roc
 app [event!] {
@@ -180,10 +180,11 @@ URL.
 
 ## Known issues
 
-- With Roc nightly-2026-10-31-f7bef6b, building `examples/room.roc` (the Durable Object example)
+- With Roc nightly-2026-11-01-48d3369, building `examples/room.roc` (the Durable Object example)
   to wasm32 crashes the compiler with a segfault on macOS and Linux arm64 hosts (in the
-  post-check `spec_constr` pass on arm64). It builds and runs on Linux x86_64. CI covers Linux
-  x86_64 only.
+  post-check `spec_constr` pass on arm64). On Linux x86_64 it crashes the same way in some runs
+  (2 of 3 runs of `scripts/all_tests.sh` on 11-01) and otherwise builds and runs; rerun the build.
+  CI covers Linux x86_64 only.
   Upstream: [roc-lang/roc#12771](https://github.com/roc-lang/roc/issues/12771)
 
 ## Changes
@@ -203,6 +204,6 @@ The first release, over roc-websocket 0.0.3 and the cloudflare-workers platform 
   `opened!`, `message!` and `closed!` to run a `Ws.Handlers` record from the app's own class.
 - `Conn.Error` is `Ws.Error(Conn.Errors)`; the handler errors of `Push` are
   `Handler(Ws.Error(e))` and `Attachment(...)`.
-- Needs Roc nightly-2026-10-31-f7bef6b. `Push` matches the handlers' results in place of
+- Needs Roc nightly-2026-11-01-48d3369. `Push` matches the handlers' results in place of
   `.map_err(...)?`, which compiled but trapped at the app's first call with this nightly
   (roc-lang/roc#12762).
