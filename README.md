@@ -13,7 +13,7 @@ both side by side.
 | Item | Value |
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
-| Depends on | roc-websocket 0.0.3; the cloudflare-workers platform 0.0.2 (both by their release URLs) |
+| Depends on | roc-websocket 0.0.4; the cloudflare-workers platform 0.0.2 (both by their release URLs) |
 | Compiler | Roc nightly-2026-10-31-f7bef6b, the nightly the platform 0.0.2 needs (`.roc-version`, which CI installs) |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
@@ -21,13 +21,13 @@ both side by side.
 ## Use
 
 The package names the platform, so the app names the same one: the cloudflare-workers platform
-0.0.2 and roc-websocket 0.0.3. It needs Roc nightly-2026-10-31-f7bef6b.
+0.0.2 and roc-websocket 0.0.4. It needs Roc nightly-2026-10-31-f7bef6b.
 
 ```roc
 app [event!] {
 	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.2/f352LLRKJCZ4JJVEocp3H9e4e6Sxa6Ym5CxZ1GZCpfd.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
-	cfws: "https://github.com/Karakatiza666/roc-cloudflare-workers-websocket/releases/download/0.0.1/3663v9dUdg2mfv4XAdGHHq7k9McDJ29CNGMhfhKortVH.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
+	cfws: "https://github.com/Karakatiza666/roc-cloudflare-workers-websocket/releases/download/0.0.2/2yFdwswVaykqbP1q7uSE4apgeDigsjs6DPahGFczVJo2.tar.zst",
 }
 
 import ws.Ws
@@ -155,7 +155,7 @@ and `Push.persist` on one socket exclude each other.
 
 ```sh
 ROC=/path/to/roc scripts/all_tests.sh   # fmt, check, roc test, build the examples to wasm32, run them in Miniflare
-ROC=/path/to/roc scripts/bundle.sh 0.0.1      # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/bundle.sh 0.0.2      # dist/<hash>.tar.zst and its release URL
 ROC=/path/to/roc scripts/test_bundle.sh       # the examples against dist/*.tar.zst (or a release URL), in Miniflare
 ```
 
@@ -187,6 +187,11 @@ URL.
   Upstream: [roc-lang/roc#12771](https://github.com/roc-lang/roc/issues/12771)
 
 ## Changes
+
+### 0.0.2
+
+Moves to roc-websocket 0.0.4 (additive: `Client.Conn.map_link`, which this adapter does not use). No
+change to the API of `Conn` or `Push`.
 
 ### 0.0.1
 
