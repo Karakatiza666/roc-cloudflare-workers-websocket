@@ -13,7 +13,7 @@ both side by side.
 | Item | Value |
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
-| Depends on | roc-websocket 0.0.4; the cloudflare-workers platform 0.0.6 (both by their release URLs) |
+| Depends on | roc-websocket 0.0.5 (unreleased: for now a local checkout at `../roc-websocket`); the cloudflare-workers platform 0.0.6 (by its release URL) |
 | Compiler | Roc nightly-2026-11-03-34bd006 (`.roc-version`, which CI installs) |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
@@ -21,7 +21,7 @@ both side by side.
 ## Use
 
 The package names the platform, so the app names the same one: the cloudflare-workers platform
-0.0.6 and roc-websocket 0.0.4. It needs Roc nightly-2026-11-03-34bd006, and the Worker's
+0.0.6 and roc-websocket 0.0.5 (unreleased; the header below is the one of 0.0.4 until then). It needs Roc nightly-2026-11-03-34bd006, and the Worker's
 Wrangler config needs the compatibility flag `enable_request_signal`
 (`compatibility_flags = ["enable_request_signal"]`).
 
@@ -58,7 +58,7 @@ Each call returns the updated connection: keep using the newest one.
 | `Conn.connect` | `Ws.Connect(Conn, Conn.Errors, {})` |
 | `Conn.accept` | `Ws.Accept(Request, Response, Conn, Conn.Errors, {})` |
 | `Conn.of`, `conn.socket()` | `WebSocket -> Conn`, `Conn -> WebSocket`: to and from the platform's socket |
-| `Conn.Errors` | `[InvalidClose(Str), SocketErr(Io.Thrown), Refused(Str), NotUpgrade(Str), Unsupported(Str)]` |
+| `Conn.Errors` | `[InvalidClose(Str), SocketErr(Io.Thrown), Refused(Str), NotUpgrade(Str)]` |
 | `Conn.Error` | `Ws.Error(Conn.Errors)`: `[Closed(Ws.Closure), Closing, ..Conn.Errors]` |
 
 A Worker server returns `response` from `fetch!` and runs the connection in its `after` work,
@@ -71,6 +71,14 @@ match (Conn.accept.accept!)(req, { protocols: ["chat"] }) {
 	Err(e) => Err(e)
 }
 ```
+
+The subprotocol is the first of `options.protocols` that the client offers: the server's order,
+as the platform's `WebSocket.pick_protocol` picks. To look at the upgrade before accepting
+(the path, the offered subprotocols, the headers) and to refuse it with a status, the Worker uses
+its own `Request` (`req.segments()`, `req.header(name)`, `WebSocket.protocols(req)`) and returns
+a `Response` of its own; nothing is written until `fetch!` returns. `examples/server.roc` has a
+pure `gate` over the same fields as roc-websocket's byte-level `Server.Request.upgrade()`, so one
+decision function serves both kinds of server.
 
 ### `Push`: the sockets of a Durable Object
 
@@ -145,10 +153,15 @@ and `Push.persist` on one socket exclude each other.
 
 ## Limits
 
-- `max_message` of `Request` and `AcceptOptions` is `Unsupported(Str)`: the platform has no limit
-  on one message. It bounds the bytes queued for `receive!` (4 MiB; more closes the socket with
-  1008 by `Us`); set it with the platform's `accept_with!`/`connect_with!` and wrap the socket
-  with `Conn.of`.
+- `max_message` of `Ws.ConnectRequest` and `Ws.AcceptOptions` is checked as each message arrives:
+  a larger one closes with 1009 and `receive!` gives `Closed({ code: 1009, clean: False, by: Us, .. })`
+  at once, as roc-websocket's byte-level driver does. The runtime has received the whole
+  message by then. With no `max_message` there is no limit on one message (the byte-level driver's
+  default is 16 MiB). The runtime itself bounds the bytes queued for `receive!` (4 MiB; more closes
+  the socket with 1008 by `Us`); set that with the platform's `accept_with!`/`connect_with!` and wrap
+  the socket with `Conn.of` (no `max_message`).
+- The sockets of a Durable Object are accepted with the platform's `accept_with!`, so
+  `Ws.AcceptOptions` (and `max_message`) do not apply to `Push`.
 - When this endpoint closes first, the closure has the code and reason of the peer's reply.
 - The Durable Object checks run locally without hibernation; every event reads the state from
   the attachment, but eviction itself is not exercised.
@@ -161,6 +174,9 @@ ROC=/path/to/roc scripts/bundle.sh 0.0.2      # dist/<hash>.tar.zst and its rele
 ROC=/path/to/roc scripts/test_bundle.sh       # the examples against dist/*.tar.zst (or a release URL), in Miniflare
 ```
 
+While roc-websocket is a local checkout (`../roc-websocket`), `roc bundle` refuses the package (the
+dependency is outside `src/`), so `bundle.sh` and `test_bundle.sh` wait for roc-websocket 0.0.5.
+
 The Miniflare runs need Node (26) and a global wrangler (`npm install -g wrangler`), whose
 Miniflare `tests/run.mjs` loads (`MINIFLARE` names another). `tests/run.mjs` loads an example's
 wasm with the platform's JS shim in Miniflare, as the platform's conformance runner does, and
@@ -171,8 +187,8 @@ names another directory with a `js/`, such as a cloudflare-workers checkout.
 
 | Example | Checks |
 | --- | --- |
-| `examples/client.roc` | `Conn.connect`: subprotocol, header, extensions, text, bytes, `receive_within!`, `Closing` before the peer answers, 30 clean closes right after a message exchange, the peer's closure from `receive!`, `send!` and `close!`, a stale value, `InvalidClose`, `Unsupported`, `Refused` |
-| `examples/server.roc` | `Conn.accept`: 426 / `NotUpgrade`, subprotocol, `NotReported` extensions, the generic `Chat` handlers over `Ws.drive!` (state, bytes, closes by `Peer` and `Us`), `receive_within!` ticks |
+| `examples/client.roc` | `Conn.connect`: subprotocol, header, extensions, text, bytes, `receive_within!`, `Closing` before the peer answers, 30 clean closes right after a message exchange, the peer's closure from `receive!`, `send!` and `close!`, a stale value, `InvalidClose`, `max_message` (1009), `Refused` |
+| `examples/server.roc` | `Conn.accept`: 426 / `NotUpgrade`, subprotocol (the server's order), `NotReported` extensions, the generic `Chat` handlers over `Ws.drive!` (state, bytes, closes by `Peer` and `Us`), `receive_within!` ticks, refusals by path and by offered subprotocols before accept, `max_message` (1009) |
 | `examples/room.roc` | `Push` in the app's own classes: the same `Chat` handlers, state per connection across events, the platform's tags and subprotocol, `Closing` after `close!`, `AutoResponse`, `Persist` and its limit |
 
 CI (`.github/workflows/tests.yaml`) runs `scripts/all_tests.sh` and `scripts/test_bundle.sh` on
@@ -195,7 +211,12 @@ URL.
 ### Unreleased
 
 - The cloudflare-workers platform 0.0.6 and Roc nightly-2026-11-03-34bd006. The Wrangler config
-  needs the compatibility flag `enable_request_signal`. No change to the API of `Conn` or `Push`.
+  needs the compatibility flag `enable_request_signal`.
+- roc-websocket 0.0.5 (its byte-level `Server`; for now a local checkout).
+- Breaking: `max_message` of `Ws.ConnectRequest` and `Ws.AcceptOptions` is checked (Close 1009,
+  as over bytes) in place of `Err(Unsupported(Str))`, and `Conn.Errors` has no `Unsupported`.
+- `examples/server.roc`: `gate`, a pure accept-or-refuse decision over the upgrade, with
+  refusals by path and by offered subprotocols.
 
 ### 0.0.2
 

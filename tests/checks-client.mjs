@@ -2,12 +2,14 @@
 // The server: "info" gives the protocol it picked and the header x-test, "delay <ms> <text>" gives the text after <ms>,
 // "close me" closes with 4005 "peer bye", other text comes back as "echo <text>", bytes come back. It refuses the
 // path /no (403).
-import { eq } from './lib.mjs';
+import { eq, ok } from './lib.mjs';
 
 let wss = null, server = '';
+const serverCloses = [];
 export async function setup(t) {
   const { WebSocketServer } = t.wsPackage();
   wss = new WebSocketServer({ port: 0, host: '127.0.0.1', verifyClient: (info) => info.req.url !== '/no' });
+  wss.on('connection', (ws) => ws.on('close', (code, reason) => serverCloses.push(`${code} ${reason}`)));
   wss.on('connection', (ws, req) => ws.on('message', (m, binary) => {
     if (binary) return ws.send(m);
     const text = m.toString();
@@ -53,11 +55,12 @@ export const checks = [
   }],
   ['errors: max_message, a refused upgrade, close codes and reasons that may not be sent', async (t) => {
     eq(await get(t, 'errors'), [
-      'limit=Err(Unsupported("max_message: the platform has no limit on one message (it bounds the bytes queued for receive!)"))',
+      `limit small=Text("echo hi") large=Err(Closed(${closure(1009, 'a message of more than 10 bytes', 'Us', 'False')}))`,
       'refused=Err(Refused("the server did not answer the upgrade with 101"))',
       'bad=Err(InvalidClose("the close code 1005 may not be sent"))',
       'long=Err(InvalidClose("a close reason of 124 bytes; at most 123"))',
       'still=Ok(Text("echo still"))',
     ].join(' '), 'the answer');
+    ok(serverCloses.includes('1009 a message of more than 10 bytes'), `the server got Close 1009: ${JSON.stringify(serverCloses)}`);
   }],
 ];

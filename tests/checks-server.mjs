@@ -1,6 +1,25 @@
 // examples/server.roc: a Worker that accepts WebSockets (Conn.accept) and runs the generic Chat handlers with Ws.drive!.
 import { client, eq, ok, sleep, waitLog, wsUrl } from './lib.mjs';
 
+// An upgrade with the `ws` package, which reports the status and body of a refusal ('unexpected-response').
+function attempt(t, path, protocols) {
+  const { WebSocket } = t.wsPackage();
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl(t.url, path), protocols);
+    ws.on('unexpected-response', (_req, res) => {
+      let body = '';
+      res.on('data', (d) => (body += d));
+      res.on('end', () => resolve({ refused: true, status: res.statusCode, gate: res.headers['x-gate'] ?? null, body }));
+    });
+    ws.on('open', () => {
+      const protocol = ws.protocol;
+      ws.close(1000, '');
+      resolve({ refused: false, protocol });
+    });
+    ws.on('error', (e) => reject(e));
+  });
+}
+
 export const checks = [
   ['a request with no Upgrade is NotUpgrade', async (t) => {
     const r = await fetch(t.url + 'plain');
@@ -55,5 +74,23 @@ export const checks = [
     eq([...got, ...rest].filter((m) => !m.startsWith('tick')).slice(0, 2), ['m1', 'm2'], 'both, in order');
     await a.close(1000, 'x');
     await waitLog(t, 'timed closed', (l) => l.code === 1000 && l.by === 'Peer');
+  }],
+  ['gate: a refusal by path, before accept, with its status, header and body', async (t) => {
+    eq(await attempt(t, '/gate/private/x?y=1', ['chat']), { refused: true, status: 403, gate: 'private', body: 'no access to /gate/private/x?y=1' }, 'the refusal');
+  }],
+  ['gate: a refusal by the offered subprotocols; accepted with one', async (t) => {
+    eq(await attempt(t, '/gate/chat', ['v2']), { refused: true, status: 400, gate: null, body: 'offer the subprotocol chat' }, 'no chat offered');
+    eq(await attempt(t, '/gate/chat', ['v2', 'chat']), { refused: false, protocol: 'chat' }, 'chat offered: the server order picks chat over the first offer v2');
+  }],
+  ['gate: max_message of the options fails a larger message with 1009, as over bytes', async (t) => {
+    const a = await client(wsUrl(t.url, '/gate/limited'), ['chat']);
+    eq(await a.next(), 'welcome', 'on_open!');
+    a.send('0123456789abcdef');
+    eq(await a.next(), 'echo 0123456789abcdef', '16 bytes pass');
+    a.send('0123456789abcdefg');
+    const c = await a.closed;
+    eq([c.code, c.reason], [1009, 'a message of more than 16 bytes'], 'the client got Close 1009');
+    const l = await waitLog(t, 'chat closure', (x) => x.code === 1009);
+    eq([l.by, l.clean, l.reason], ['Us', false, 'a message of more than 16 bytes'], 'on_close! got the failure at once');
   }],
 ];

@@ -1,7 +1,8 @@
 app [event!] {
 	cfws: "../src/main.roc",
 	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.6/HgUugW5V5QQbmrjdjkRhjiZ8B9D9gzpEkSwdojqJcW4p.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
+	# Temporary: the unreleased roc-websocket (0.0.5) of a local checkout beside this one.
+	ws: "../../roc-websocket/src/main.roc",
 }
 
 ## A Worker that connects out to a WebSocket server (`?url=ws://...`) through
@@ -13,7 +14,7 @@ app [event!] {
 ## | `/exchange?n=30` | `n` times: one message each way, then `Ws.close_and_wait!` at once |
 ## | `/peer_close` | the server closes: `Closed` by the peer from `receive!`, then the same closure from `send!` and `close!` |
 ## | `/stale` | `close!` on the connection value from before `Ws.close_and_wait!` |
-## | `/errors` | `close!` with a code that may not be sent, `max_message`, a server that refuses |
+## | `/errors` | `close!` with a code that may not be sent, `max_message` (Close 1009), a server that refuses |
 import pf.Worker
 import pf.Request
 import pf.Response
@@ -110,7 +111,23 @@ stale! = |url| {
 ## Errors that are not closures.
 errors! : Str => Str
 errors! = |url| {
-	limit = connect!({ url, max_message: 10 }).map_ok(|_| {})
+	limit = match connect!({ url, max_message: 10 }) {
+		# "echo hi" is 7 bytes; "echo more than ten" is 18: Close 1009.
+		Ok(opened) =>
+			match opened.conn.send!(Text("hi")) {
+				Ok(c0) =>
+					match c0.receive!() {
+						Ok((c1, small)) =>
+							match c1.send!(Text("more than ten")) {
+								Ok(c2) => "small=${Str.inspect(small)} large=${Str.inspect(c2.receive!().map_ok(|(_, m)| m))}"
+								Err(e) => "Err ${Str.inspect(e)}"
+							}
+						Err(e) => "Err ${Str.inspect(e)}"
+					}
+				Err(e) => "Err ${Str.inspect(e)}"
+			}
+		Err(e) => "Err ${Str.inspect(e)}"
+	}
 	refused = connect!({ url: url.replace_each("ws://", "http://").concat("/no") }).map_ok(|_| {})
 	codes = match connect!({ url: url }) {
 		Ok(opened) => {
@@ -126,7 +143,7 @@ errors! = |url| {
 		}
 		Err(e) => "Err ${Str.inspect(e)}"
 	}
-	"limit=${Str.inspect(limit)} refused=${Str.inspect(refused)} ${codes}"
+	"limit ${limit} refused=${Str.inspect(refused)} ${codes}"
 }
 
 worker = Worker.new({ fetch!: fetch! })

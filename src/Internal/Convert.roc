@@ -23,12 +23,12 @@ Convert :: [].{
 		TooLarge => InvalidClose("a close reason of ${reason.count_utf8_bytes().to_str()} bytes; at most 123")
 	}
 
-	## `max_message` of a request or of accept options: the platform has no
-	## per-message limit (it bounds the bytes queued for `receive!`).
-	no_max_message : Try(U64, [MissingField]) -> Try({}, [Unsupported(Str), ..others])
-	no_max_message = |max| match max {
-		Ok(_) => Err(Unsupported("max_message: the platform has no limit on one message (it bounds the bytes queued for receive!)"))
-		Err(MissingField) => Ok({})
+	## The size of a message, as `max_message` counts it: the UTF-8 bytes of
+	## a text, the bytes of a binary message.
+	message_size : Ws.Message -> U64
+	message_size = |m| match m {
+		Text(s) => s.count_utf8_bytes()
+		Binary(b) => b.len()
 	}
 }
 
@@ -37,5 +37,5 @@ expect Convert.from_platform(Convert.to_platform(Binary([0, 1, 255]))) == Binary
 expect Convert.to_platform(Binary([7])) == Bytes([7])
 expect Convert.invalid_close(BadCode, 1005, "") == InvalidClose("the close code 1005 may not be sent")
 expect Convert.invalid_close(TooLarge, 1000, Str.repeat("r", 124)) == InvalidClose("a close reason of 124 bytes; at most 123")
-expect Convert.no_max_message(Err(MissingField)) == Ok({})
-expect Convert.no_max_message(Ok(10)) != Ok({})
+expect Convert.message_size(Text("héllo")) == 6
+expect Convert.message_size(Binary([1, 2, 3])) == 3
