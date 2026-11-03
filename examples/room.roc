@@ -1,6 +1,6 @@
 app [event!] {
 	cfws: "../src/main.roc",
-	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.2/f352LLRKJCZ4JJVEocp3H9e4e6Sxa6Ym5CxZ1GZCpfd.tar.zst",
+	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.6/HgUugW5V5QQbmrjdjkRhjiZ8B9D9gzpEkSwdojqJcW4p.tar.zst",
 	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
 }
 
@@ -114,8 +114,11 @@ room_class = Object.class(
 				match self.accept_with!(req, { protocols: ["v2"], tags: ["room", name] }) {
 					Ok({ socket, response }) => {
 						protocol = WebSocket.pick_protocol(req, ["v2"]) ?? ""
-						Push.opened!(socket, user_slot, { name, protocol, sent: 0 }, room_handlers)?
-						Ok(response)
+						# A match, not `?`: with `?` in this lambda, Roc nightly 2026-11-03 crashes in spec_constr (roc-lang/roc#12771).
+						match Push.opened!(socket, user_slot, { name, protocol, sent: 0 }, room_handlers) {
+							Ok({}) => Ok(response)
+							Err(e) => Err(e)
+						}
 					}
 					Err(NotUpgrade) => Ok(Response.from_status(426))
 					Err(TooLarge) => Ok(Response.from_status(400))

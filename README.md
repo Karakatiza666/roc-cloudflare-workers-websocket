@@ -13,19 +13,21 @@ both side by side.
 | Item | Value |
 | --- | --- |
 | Modules | `Conn` (a Worker's client and server sockets, pull), `Push` (Durable Object sockets, push) |
-| Depends on | roc-websocket 0.0.4; the cloudflare-workers platform 0.0.2 (both by their release URLs) |
-| Compiler | Roc nightly-2026-11-01-48d3369 (`.roc-version`, which CI installs) |
+| Depends on | roc-websocket 0.0.4; the cloudflare-workers platform 0.0.6 (both by their release URLs) |
+| Compiler | Roc nightly-2026-11-03-34bd006 (`.roc-version`, which CI installs) |
 | Tests | `scripts/all_tests.sh` |
 | License | UPL-1.0 (`LICENSE`) |
 
 ## Use
 
 The package names the platform, so the app names the same one: the cloudflare-workers platform
-0.0.2 and roc-websocket 0.0.4. It needs Roc nightly-2026-11-01-48d3369.
+0.0.6 and roc-websocket 0.0.4. It needs Roc nightly-2026-11-03-34bd006, and the Worker's
+Wrangler config needs the compatibility flag `enable_request_signal`
+(`compatibility_flags = ["enable_request_signal"]`).
 
 ```roc
 app [event!] {
-	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.2/f352LLRKJCZ4JJVEocp3H9e4e6Sxa6Ym5CxZ1GZCpfd.tar.zst",
+	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.6/HgUugW5V5QQbmrjdjkRhjiZ8B9D9gzpEkSwdojqJcW4p.tar.zst",
 	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
 	cfws: "https://github.com/Karakatiza666/roc-cloudflare-workers-websocket/releases/download/0.0.2/2yFdwswVaykqbP1q7uSE4apgeDigsjs6DPahGFczVJo2.tar.zst",
 }
@@ -180,14 +182,20 @@ URL.
 
 ## Known issues
 
-- With Roc nightly-2026-11-01-48d3369, building `examples/room.roc` (the Durable Object example)
-  to wasm32 crashes the compiler with a segfault on macOS and Linux arm64 hosts (in the
-  post-check `spec_constr` pass on arm64). On Linux x86_64 it crashes the same way in some runs
-  (2 of 3 runs of `scripts/all_tests.sh` on 11-01) and otherwise builds and runs; rerun the build.
-  CI covers Linux x86_64 only.
+- Roc's post-check `spec_constr` pass crashes (a segfault, or the panic "guarded list
+  invalidated") on a `?` over a call that runs handlers, inside a lambda given to another
+  function (an `Object.class` field). With nightly-2026-11-03-34bd006 `examples/room.roc` crashed
+  in every build on Linux x86_64 while its `Room` class had `Push.opened!(...)?` in its `fetch!`
+  lambda; it matches the result instead. The same bug made the 11-01 build crash in some runs on
+  x86_64 and in every run on macOS and Linux arm64. CI covers Linux x86_64 only.
   Upstream: [roc-lang/roc#12771](https://github.com/roc-lang/roc/issues/12771)
 
 ## Changes
+
+### Unreleased
+
+- The cloudflare-workers platform 0.0.6 and Roc nightly-2026-11-03-34bd006. The Wrangler config
+  needs the compatibility flag `enable_request_signal`. No change to the API of `Conn` or `Push`.
 
 ### 0.0.2
 
