@@ -2,7 +2,7 @@
 // The server: "info" gives the protocol it picked and the header x-test, "delay <ms> <text>" gives the text after <ms>,
 // "close me" closes with 4005 "peer bye", other text comes back as "echo <text>", bytes come back. It refuses the
 // path /no (403).
-import { eq, ok } from './lib.mjs';
+import { eq, ok, sleep } from './lib.mjs';
 
 let wss = null, server = '';
 const serverCloses = [];
@@ -61,6 +61,7 @@ export const checks = [
       'long=Err(InvalidClose("a close reason of 124 bytes; at most 123"))',
       'still=Ok(Text("echo still"))',
     ].join(' '), 'the answer');
+    for (let i = 0; i < 60 && !serverCloses.includes('1009 a message of more than 10 bytes'); i++) await sleep(50);
     ok(serverCloses.includes('1009 a message of more than 10 bytes'), `the server got Close 1009: ${JSON.stringify(serverCloses)}`);
   }],
 ];

@@ -1,6 +1,6 @@
 // examples/room.roc: Durable Objects with the platform's hibernation API, running roc-websocket handlers through Push.
 // Local SQLite-backed objects.
-import { client, eq, waitLog, wsUrl } from './lib.mjs';
+import { burst, client, eq, waitLog, wsUrl } from './lib.mjs';
 
 export const options = {
   durableObjects: {
@@ -97,5 +97,12 @@ export const checks = [
     a.send('saved');
     eq(await a.next(), 'saved=some bytes', 'a refused save! keeps the bytes');
     await a.close(1000, '');
+  }],
+  ['messages and the Close in one burst: every reply is sent, then the close completes and on_close! runs', async (t) => {
+    const r = await burst(t, '/chat/burst', 100);
+    eq(r.got.length, 101, 'welcome and 100 replies');
+    eq(r.got[100], 'echo m99', 'the last reply');
+    eq(r.closed, { code: 4001, reason: 'burst' }, 'the answer to the Close');
+    await waitLog(t, 'chat closed', (l) => l.count === 100 && l.code === 4001);
   }],
 ];

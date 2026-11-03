@@ -188,8 +188,8 @@ names another directory with a `js/`, such as a cloudflare-workers checkout.
 | Example | Checks |
 | --- | --- |
 | `examples/client.roc` | `Conn.connect`: subprotocol, header, extensions, text, bytes, `receive_within!`, `Closing` before the peer answers, 30 clean closes right after a message exchange, the peer's closure from `receive!`, `send!` and `close!`, a stale value, `InvalidClose`, `max_message` (1009), `Refused` |
-| `examples/server.roc` | `Conn.accept`: 426 / `NotUpgrade`, subprotocol (the server's order), `NotReported` extensions, the generic `Chat` handlers over `Ws.drive!` (state, bytes, closes by `Peer` and `Us`), `receive_within!` ticks, refusals by path and by offered subprotocols before accept, `max_message` (1009) |
-| `examples/room.roc` | `Push` in the app's own classes: the same `Chat` handlers, state per connection across events, the platform's tags and subprotocol, `Closing` after `close!`, `AutoResponse`, `Persist` and its limit |
+| `examples/server.roc` | `Conn.accept`: 426 / `NotUpgrade`, subprotocol (the server's order), `NotReported` extensions, the generic `Chat` handlers over `Ws.drive!` (state, bytes, closes by `Peer` and `Us`), `receive_within!` ticks, refusals by path and by offered subprotocols before accept, `max_message` (1009), a burst of 100 messages and the Close (every reply, then `on_close!`) |
+| `examples/room.roc` | `Push` in the app's own classes: the same `Chat` handlers (also a burst of 100 messages and the Close: every reply, then `on_close!`), state per connection across events, the platform's tags and subprotocol, `Closing` after `close!`, `AutoResponse`, `Persist` and its limit |
 
 CI (`.github/workflows/tests.yaml`) runs `scripts/all_tests.sh` and `scripts/test_bundle.sh` on
 Linux x86_64 only, with the nightly of `.roc-version`, Node 26 and wrangler; a tag

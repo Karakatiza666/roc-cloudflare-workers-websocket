@@ -1,5 +1,5 @@
 // examples/server.roc: a Worker that accepts WebSockets (Conn.accept) and runs the generic Chat handlers with Ws.drive!.
-import { client, eq, ok, sleep, waitLog, wsUrl } from './lib.mjs';
+import { burst, client, eq, ok, sleep, waitLog, wsUrl } from './lib.mjs';
 
 // An upgrade with the `ws` package, which reports the status and body of a refusal ('unexpected-response').
 function attempt(t, path, protocols) {
@@ -92,5 +92,12 @@ export const checks = [
     eq([c.code, c.reason], [1009, 'a message of more than 16 bytes'], 'the client got Close 1009');
     const l = await waitLog(t, 'chat closure', (x) => x.code === 1009);
     eq([l.by, l.clean, l.reason], ['Us', false, 'a message of more than 16 bytes'], 'on_close! got the failure at once');
+  }],
+  ['messages and the Close in one burst: every reply is sent, then the close completes and on_close! runs', async (t) => {
+    const r = await burst(t, '/chat', 100);
+    eq(r.got.length, 101, 'welcome and 100 replies');
+    eq(r.got[100], 'echo m99', 'the last reply');
+    eq(r.closed, { code: 4001, reason: 'burst' }, 'the answer to the Close');
+    await waitLog(t, 'chat closed', (l) => l.count === 100);
   }],
 ];

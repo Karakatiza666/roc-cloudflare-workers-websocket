@@ -51,3 +51,17 @@ export async function waitLog(t, msg, pred = () => true) {
   }
   throw new Error(`no log line ${msg}: ${JSON.stringify(t.logs.slice(-10))}`);
 }
+
+// Messages and the Close in one burst, as a client that sends and closes in one write: the replies and the close.
+export async function burst(t, path, n) {
+  const { WebSocket } = t.wsPackage();
+  const ws = new WebSocket(wsUrl(t.url, path), ['chat']);
+  const got = [];
+  ws.on('message', (m) => got.push(m.toString()));
+  await new Promise((r, j) => (ws.on('open', r), ws.on('error', j)));
+  for (let i = 0; i < 100 && !got.length; i++) await sleep(10);
+  const closed = new Promise((r) => ws.on('close', (code, reason) => r({ code, reason: reason.toString() })));
+  for (let i = 0; i < n; i++) ws.send(`m${i}`);
+  ws.close(4001, 'burst');
+  return { got, closed: await closed };
+}
