@@ -1,8 +1,7 @@
 app [event!] {
 	cfws: "../src/main.roc",
 	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.6/HgUugW5V5QQbmrjdjkRhjiZ8B9D9gzpEkSwdojqJcW4p.tar.zst",
-	# Temporary: the unreleased roc-websocket (0.0.5) of a local checkout beside this one.
-	ws: "../../roc-websocket/src/main.roc",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.5/AKLgwxjBQN2XkE4G5sZtzrjPSxhwo6XmJRSPdWhpgVUN.tar.zst",
 }
 
 ## A Worker that accepts WebSockets itself (no Durable Object) and runs the
@@ -39,8 +38,8 @@ fetch! = |req| match req.segments() {
 			Err(e) => Err(e)
 		}
 	["gate", ..] =>
-		match gate(upgrade_of(req)) {
-			Refuse(refusal) => Ok(Response.from_text(refusal.status, refusal.body).with_headers(refusal.headers.map(|(name, value)| { name, value })))
+		match gate(Conn.upgrade(req)) {
+			Refuse(refusal) => Ok(Conn.refusal_response(refusal))
 			Accept(options) =>
 				match (Conn.accept.accept!)(req, options) {
 					Ok({ response, opened }) => Ok(response.after(|| chat!(opened)))
@@ -52,36 +51,15 @@ fetch! = |req| match req.segments() {
 	_ => Ok(Response.from_text(404, "no route"))
 }
 
-## What an application looks at before it accepts: the resource (path and
-## query), `Host`, the subprotocols offered in order, and every header. This
-## is the byte-level `Server.Request.upgrade()` with no `Sec-WebSocket-Key`;
-## on Workers it comes from the platform's `Request`.
-Upgrade : { resource : Str, host : Str, protocols : List(Str), headers : List((Str, Str)) }
-
-upgrade_of : Request -> Upgrade
-upgrade_of = |req| {
-	resource: match req.url().split_first("://") {
-		Ok({ after, .. }) =>
-			match after.split_first("/") {
-				Ok({ after: path, .. }) => "/${path}"
-				Err(NotFound) => "/"
-			}
-		Err(NotFound) => req.url()
-	},
-	host: req.header("host") ?? "",
-	protocols: WebSocket.protocols(req),
-	headers: req.headers().map(|h| (h.name, h.value)),
-}
-
 ## A pure decision over an upgrade, in roc-websocket's terms only
-## (`Ws.AcceptOptions`, and a refusal shaped as `Server.Refusal`), so the same
+## (`Ws.Upgrade` in, `Ws.AcceptOptions` or a `Ws.Refusal` out), so the same
 ## function runs on a byte-level server over `request.upgrade()`.
-gate : Upgrade -> [Accept(Ws.AcceptOptions), Refuse({ status : U16, headers : List((Str, Str)), body : Str })]
+gate : Ws.Upgrade -> [Accept(Ws.AcceptOptions), Refuse(Ws.Refusal)]
 gate = |u|
 	if u.resource.starts_with("/gate/private") {
 		Refuse({ status: 403, headers: [("x-gate", "private")], body: "no access to ${u.resource}" })
 	} else if u.resource.starts_with("/gate/chat") and !u.protocols.contains("chat") {
-		Refuse({ status: 400, headers: [], body: "offer the subprotocol chat" })
+		Refuse({ status: 400, body: "offer the subprotocol chat" })
 	} else if u.resource.starts_with("/gate/limited") {
 		Accept({ protocols: ["chat", "v2"], max_message: 16 })
 	} else {
@@ -95,14 +73,15 @@ chat! = |opened| {
 	handlers = {
 		on_open!: h.on_open!,
 		on_message!: h.on_message!,
-		on_close!: |n, closure| {
+		on_close!: |n, conn, closure| {
 			Log.info!("chat closure", { code: closure.code, reason: closure.reason, clean: closure.clean, by: Str.inspect(closure.by) })
-			(h.on_close!)(n, closure)
+			(h.on_close!)(n, conn, closure)
 		},
 	}
-	match Ws.drive!(Conn.ops, opened.conn, 0, handlers) {
-		Ok(count) => Log.info!("chat closed", { count: count })
-		Err(e) => Log.info!("chat failed", { error: Str.inspect(e) })
+	(count, ended) = Ws.drive!(Conn.ops, opened.conn, 0, handlers)
+	match ended {
+		Ok(_) => Log.info!("chat closed", { count: count })
+		Err(e) => Log.info!("chat failed", { error: Str.inspect(e), count: count })
 	}
 	Ok({})
 }

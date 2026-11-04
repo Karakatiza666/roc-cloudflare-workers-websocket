@@ -19,6 +19,6 @@ Chat :: [].{
 			}
 			Ok((count, next))
 		},
-		on_close!: |n, _closure| Ok(n),
+		on_close!: |n, _conn, _closure| Ok(n),
 	}
 }

@@ -1,8 +1,7 @@
 app [event!] {
 	cfws: "../src/main.roc",
 	pf: platform "https://github.com/Karakatiza666/roc-cloudflare-workers/releases/download/0.0.6/HgUugW5V5QQbmrjdjkRhjiZ8B9D9gzpEkSwdojqJcW4p.tar.zst",
-	# Temporary: the unreleased roc-websocket (0.0.5) of a local checkout beside this one.
-	ws: "../../roc-websocket/src/main.roc",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.5/AKLgwxjBQN2XkE4G5sZtzrjPSxhwo6XmJRSPdWhpgVUN.tar.zst",
 }
 
 ## Durable Objects that serve WebSockets with the platform's hibernation API,
@@ -32,9 +31,9 @@ chat_handlers : Ws.Handlers(U64, Object.Socket, Push.Errors)
 chat_handlers = {
 	on_open!: base.on_open!,
 	on_message!: base.on_message!,
-	on_close!: |n, closure| {
+	on_close!: |n, conn, closure| {
 		Log.info!("chat closed", { count: n, code: closure.code, reason: closure.reason, clean: closure.clean, by: Str.inspect(closure.by) })
-		(base.on_close!)(n, closure)
+		(base.on_close!)(n, conn, closure)
 	},
 }
 
@@ -91,7 +90,7 @@ room_handlers = {
 			Binary(b) => Ok((next, send!(socket, Binary(b))?))
 		}
 	},
-	on_close!: |user, closure| {
+	on_close!: |user, _socket, closure| {
 		Log.info!("room closed", { user: user.name, sent: user.sent, code: closure.code, by: Str.inspect(closure.by) })
 		Ok(user)
 	},

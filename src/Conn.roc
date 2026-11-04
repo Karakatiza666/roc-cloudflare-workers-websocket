@@ -14,8 +14,9 @@ import Internal/Convert as Convert
 ## the closing handshake), so there is nothing at the frame level.
 ## `max_message` of `Ws.ConnectRequest` and `Ws.AcceptOptions` is checked as
 ## each message arrives: a larger one fails the connection with 1009, as over
-## bytes (the runtime has the whole message by then; its own bound is the
-## receive queue, `max_queued_bytes`). For what only Workers has (`max_queued_bytes`, `Message.json`, `send_json!`,
+## bytes (the runtime has the whole message by then). If it is omitted, the
+## adapter's limit applies: there is none per message, only the receive queue
+## (`max_queued_bytes`, 4 MiB), which closes with 1008. For what only Workers has (`max_queued_bytes`, `Message.json`, `send_json!`,
 ## `Io.race!` over a receive) use the platform's `WebSocket`: `Conn.of` wraps
 ## one, `conn.socket()` gives it back.
 Conn :: { socket : WebSocket, closing : Bool, max_message : [Limit(U64), NoLimit] }.{
@@ -37,6 +38,34 @@ Conn :: { socket : WebSocket, closing : Bool, max_message : [Limit(U64), NoLimit
 	## with no `max_message`.
 	of : WebSocket -> Conn
 	of = |socket| { socket, closing: Bool.False, max_message: NoLimit }
+
+	## The upgrade request as `Ws.Upgrade`, from the platform's `Request`: the
+	## resource (path and query), `Host`, the subprotocols offered in order
+	## (`WebSocket.protocols`) and every header. Look at it before `accept!`.
+	upgrade : Request -> Ws.Upgrade
+	upgrade = |req| {
+		resource: match req.url().split_first("://") {
+			Ok({ after, .. }) =>
+				match after.split_first("/") {
+					Ok({ after: path, .. }) => "/${path}"
+					Err(NotFound) => "/"
+				}
+			Err(NotFound) => req.url()
+		},
+		host: req.header("host") ?? "",
+		protocols: WebSocket.protocols(req),
+		headers: req.headers().map(|h| (h.name, h.value)),
+	}
+
+	## A `Ws.Refusal` as the Worker's `Response`: return it from `fetch!`
+	## before (instead of) `accept!`; nothing is written until then. The
+	## body is plain text.
+	refusal_response : Ws.Refusal -> Response
+	refusal_response = |refusal| {
+		base = Response.from_text(refusal.status, refusal.?body ?? "")
+		extra = (refusal.?headers ?? []).map(|(name, value)| { name, value })
+		base.with_headers(base.headers().concat(extra))
+	}
 
 	## The platform socket.
 	socket : Conn -> WebSocket

@@ -111,7 +111,7 @@ Push :: [].{
 
 	## The `web_socket_close!` handler: answers a close of the peer (with its
 	## code, or 1000 when it sent none), then `on_close!` with the state in
-	## `slot` and the closure.
+	## `slot`, the socket and the closure.
 	closed! : Object.Attachment(s), Ws.Handlers(s, Object.Socket, e) -> (Object.Self, Object.Socket, WebSocket.Closed => Try({}, [Handler(Ws.Error(e)), Attachment([NotFound, Infra([BadData(Str)]), TooLarge])]))
 	closed! = |slot, handlers| |_self, socket, closure| {
 		if closure.by == Peer {
@@ -119,7 +119,7 @@ Push :: [].{
 			{}
 		}
 		s = load!(slot, socket)?
-		match (handlers.on_close!)(s, closure) {
+		match (handlers.on_close!)(s, socket, closure) {
 			Ok(_) => Ok({})
 			Err(e) => Err(Handler(e))
 		}
