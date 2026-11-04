@@ -177,11 +177,6 @@ ROC=/path/to/roc scripts/bundle.sh 0.0.3      # dist/<hash>.tar.zst and its rele
 ROC=/path/to/roc scripts/test_bundle.sh       # the examples against dist/*.tar.zst (or a release URL), in Miniflare
 ```
 
-Until roc-websocket 0.0.5 is published, its URL does not download: seed the repository's roc cache
-(`.cache/roc`, which the scripts use) from its bundle with
-`mkdir -p .cache/roc/packages/<hash>`, `tar --zstd -xf <hash>.tar.zst -C .cache/roc/packages/<hash>`
-and a copy of the bundle there, as `roc` lays out a downloaded package.
-
 The Miniflare runs need Node (26) and a global wrangler (`npm install -g wrangler`), whose
 Miniflare `tests/run.mjs` loads (`MINIFLARE` names another). `tests/run.mjs` loads an example's
 wasm with the platform's JS shim in Miniflare, as the platform's conformance runner does, and
